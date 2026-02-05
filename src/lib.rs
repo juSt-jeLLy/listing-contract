@@ -65,4 +65,12 @@ impl Contract {
 
         self.listings.iter().map(|l| l.clone()).collect()
     }
+    pub fn buy(&mut self, p_id: u64){
+        for item in &mut self.listings{
+            if(item.product_id==p_id){
+                item.purchase_number+=1;
+                break;
+            }
+        }
+    }
 }
