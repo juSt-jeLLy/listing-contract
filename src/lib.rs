@@ -1,4 +1,4 @@
-use near_sdk::{near, AccountId};
+use near_sdk::{env, near, AccountId};
 use near_sdk::store::Vector;
 
 #[near(serializers = [json, borsh])]
@@ -21,6 +21,7 @@ pub struct Listing {
     pub list_type: ListingKind,
     pub cid: String,
     pub is_active: bool,
+    pub buyers: Vec<AccountId>,
 }
 
 #[near(contract_state)]
@@ -56,6 +57,7 @@ impl Contract {
             list_type,
             cid,
             is_active: true,
+            buyers: Vec::new(),
         };
         
         self.listings.push(new_list);
@@ -66,9 +68,11 @@ impl Contract {
         self.listings.iter().map(|l| l.clone()).collect()
     }
     pub fn buy(&mut self, p_id: u64){
+        let buyer_add: AccountId = env::predecessor_account_id();
         for item in &mut self.listings{
             if(item.product_id==p_id){
                 item.purchase_number+=1;
+                item.buyers.push(buyer_add);
                 break;
             }
         }
