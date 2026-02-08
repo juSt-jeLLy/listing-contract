@@ -177,16 +177,6 @@ impl Contract {
         None
     }
     
-    pub fn get_buyers_reverse(&self, p_id: u64) -> Vec<AccountId> {
-        if let Some(listing) = self.get_listing(p_id) {
-            let mut buyers = listing.buyers;
-            buyers.reverse();
-            buyers
-        } else {
-            Vec::new()
-        }
-    }
-
     pub fn has_purchased(&self, p_id: u64, account_id: AccountId) -> bool {
         if let Some(listing) = self.get_listing(p_id) {
             listing.buyers.contains(&account_id)
