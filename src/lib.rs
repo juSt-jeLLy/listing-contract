@@ -22,6 +22,7 @@ pub struct Listing {
     pub cid: String,
     pub is_active: bool,
     pub buyers: Vec<AccountId>,
+    pub buyers_with_access: Vec<AccountId>,
 }
 
 #[near(contract_state)]
@@ -58,23 +59,139 @@ impl Contract {
             cid,
             is_active: true,
             buyers: Vec::new(),
+            buyers_with_access: Vec::new(), 
         };
         
         self.listings.push(new_list);
     }
 
     pub fn get_listings(&self) -> Vec<Listing> {
-
         self.listings.iter().map(|l| l.clone()).collect()
     }
-    pub fn buy(&mut self, p_id: u64){
-        let buyer_add: AccountId = env::predecessor_account_id();
-        for item in &mut self.listings{
-            if(item.product_id==p_id){
-                item.purchase_number+=1;
-                item.buyers.push(buyer_add);
-                break;
+    
+    pub fn buy(&mut self, p_id: u64) {
+        let buyer_account: AccountId = env::predecessor_account_id();
+        
+        for i in 0..self.listings.len() {
+            if let Some(item) = self.listings.get(i) {
+                if item.product_id == p_id {
+                    let mut updated_item = item.clone();
+                    
+                    updated_item.purchase_number += 1;
+                    
+                    if !updated_item.buyers.contains(&buyer_account) {
+                        updated_item.buyers.push(buyer_account.clone());
+                    }
+                    
+                    self.listings.set(i, updated_item);
+                    break;
+                }
             }
+        }
+    }
+    
+    pub fn grant_buyer_access(&mut self, p_id: u64, buyer: AccountId) {
+        let caller = env::predecessor_account_id();
+        
+        for i in 0..self.listings.len() {
+            if let Some(item) = self.listings.get(i) {
+                if item.product_id == p_id {
+                    assert_eq!(
+                        item.owner, caller,
+                        "Only the listing owner can grant access"
+                    );
+                    
+                    assert!(
+                        item.buyers.contains(&buyer),
+                        "Account has not purchased this listing"
+                    );
+                    
+                    let mut updated_item = item.clone();
+                    
+                    if !updated_item.buyers_with_access.contains(&buyer) {
+                        updated_item.buyers_with_access.push(buyer);
+                    }
+                    
+                    self.listings.set(i, updated_item);
+                    break;
+                }
+            }
+        }
+    }
+    
+    pub fn revoke_buyer_access(&mut self, p_id: u64, buyer: AccountId) {
+        let caller = env::predecessor_account_id();
+        
+        for i in 0..self.listings.len() {
+            if let Some(item) = self.listings.get(i) {
+                if item.product_id == p_id {
+                    assert_eq!(
+                        item.owner, caller,
+                        "Only the listing owner can revoke access"
+                    );
+                    
+                    let mut updated_item = item.clone();
+                    
+                    updated_item.buyers_with_access.retain(|b| b != &buyer);
+                    
+                    self.listings.set(i, updated_item);
+                    break;
+                }
+            }
+        }
+    }
+    
+    pub fn get_pending_access_buyers(&self, p_id: u64) -> Vec<AccountId> {
+        if let Some(listing) = self.get_listing(p_id) {
+            listing.buyers
+                .into_iter()
+                .filter(|buyer| !listing.buyers_with_access.contains(buyer))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+    
+    pub fn get_buyers_with_access(&self, p_id: u64) -> Vec<AccountId> {
+        if let Some(listing) = self.get_listing(p_id) {
+            listing.buyers_with_access
+        } else {
+            Vec::new()
+        }
+    }
+    
+    pub fn has_access(&self, p_id: u64, buyer: AccountId) -> bool {
+        if let Some(listing) = self.get_listing(p_id) {
+            listing.buyers_with_access.contains(&buyer)
+        } else {
+            false
+        }
+    }
+    
+    pub fn get_listing(&self, p_id: u64) -> Option<Listing> {
+        for item in self.listings.iter() {
+            if item.product_id == p_id {
+                return Some(item.clone());
+            }
+        }
+        None
+    }
+    
+    pub fn get_buyers_reverse(&self, p_id: u64) -> Vec<AccountId> {
+        if let Some(listing) = self.get_listing(p_id) {
+            let mut buyers = listing.buyers;
+            buyers.reverse();
+            buyers
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn has_purchased(&self, p_id: u64, account_id: AccountId) -> bool {
+        if let Some(listing) = self.get_listing(p_id) {
+            listing.buyers.contains(&account_id)
+        } else {
+            false
         }
     }
 }
